@@ -1,0 +1,22 @@
+from setuptools import setup, find_packages
+
+setup(name='direct-gps-propagation',
+      version='0.0.1',
+      author="Stephanie Lu",
+      description="Propagation of orbit using LLA GPS data.",
+      url="https://github.com/spacesys-finch/direct-gps-propogation",
+      license="LGPLv3",
+      packages=find_packages(),
+      install_requires=["numpy",
+                        "seaborn",
+                        "celest==0.3.0",
+                        "scikit-learn",
+                        "matplotlib"],
+      classifiers=["Development Status :: 3 - Alpha",
+                   "Programming Language :: Python :: 3",
+                   "License :: OSI Approved :: MIT License",
+                   "Operating System :: OS Independent",
+                   "Programming Language :: C",
+                   "Topic :: Scientific/Engineering :: Physics",
+                   "Intended Audience :: Science/Research"],
+      python_requires='>=3.6')

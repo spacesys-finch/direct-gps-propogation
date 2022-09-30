@@ -8,7 +8,7 @@ from celest.encounter import GroundPosition
 
 class GPSPropogation:
 
-    def __init__(self, time: np.ndarray, eci_positions: csv_file, target_coordinates: tuple, linear_fit: tuple):
+    def __init__(self, time: np.ndarray, eci_positions: np.ndarray, target_coordinates: tuple, linear_fit: tuple):
 
         # all the messy code that the user doesn't see
 
@@ -300,3 +300,6 @@ class GPSPropogation:
     def plot_linear_approximation():
         data, latitude, longitude = self.load_data
         return self.plot_linear_approximation
+    
+if __name__ == "__main__":
+    print("hello")
