@@ -9,11 +9,26 @@ from celest.encounter import GroundPosition
 class GPSPropogation:
 
     def __init__(self, time: np.ndarray, eci_positions: np.ndarray, target_coordinates: tuple, linear_fit: tuple):
+    
+        self.time = time
+        self.eci_positions = eci_positions
+        self.target_coordinates = target_coordinates
+        self.linear_fit = linear_fit
 
-        # all the messy code that the user doesn't see
+        def load_data_celest(eci_positions):
+            """Returns an array of the orbit data [latitude, longitude, altitude], 
+            an array of the latitude data, and an array of the longitude data
 
-        def load_data_celest(file):
-            orbit_data = np.loadtxt(file, delimiter=',')
+            Args:
+                eci_positions (np.ndarray): *.csv file of the orbit data
+
+            Returns:
+                data (np.ndarray): orbit data [latitude, longitude, altitude]
+                latitude (np.ndarray): latitude data
+                longitude (np.ndarray): longitude data
+            """
+
+            orbit_data = np.loadtxt(eci_positions, delimiter=',')
 
             time_seconds = orbit_data[:, 0] # julian
             position_m = orbit_data[:, 1:4] # gcrs
@@ -31,20 +46,53 @@ class GPSPropogation:
 
 
         def set_parameters(start, end, data):
+            """Returns truncated latitude and longitude arrays from index = start to index = end
+
+            Args:
+                start (int): start index
+                end (int): end index
+                data (np.ndarray): orbit data [latitude, longitude, altitude]
+
+            Returns:
+                latitude (np.ndarray): latitude data
+                longitude (np.ndarray): longitude data
+            """
+
             latitude = data[start:end, 0] # Degrees north of equator
             longitude = data[start:end, 1] # Degrees east of prime meridian
             return latitude, longitude
 
 
         def set_parameters2(start, end, data):
+            """Returns truncated latitude and longitude arrays from index = start to index = end
+
+            Args:
+                start (int): start index
+                end (int): end index
+                data (np.ndarray): orbit data [latitude, longitude, altitude]
+
+            Returns:
+                latitude (np.ndarray): latitude data
+                longitude (np.ndarray): longitude data
+            """
+
             latitude = data[0, start:end] # Degrees north of equator
             longitude = data[1, start:end] # Degrees east of prime meridian
             return latitude, longitude
 
 
-        def get_convex_hull(ax, target_lat, target_long):
+        def get_convex_hull(ax, traget_coordinates):
+            """Returns convex hull around target coordinates
 
-            target = GroundPosition(target_lat, target_long)
+            Args:
+                ax: _description_
+                traget_coordinates (tuple): target latitude and longitude coordinates
+
+            Returns:
+                hull: convex hull
+            """
+
+            target = GroundPosition(traget_coordinates[0], target_coordinates[1])
 
             # Generate an evenly spaced 2D grid of latitudes and longitudes
             lats = np.linspace(-90, 90, 1000)
@@ -87,12 +135,31 @@ class GPSPropogation:
 
 
         def inside_hull_func(hull, latitude, longitude):
+            """Returns an array of latitude and longitude points from 
+            the orbit data that lies inside the convex hull
+
+            Args:
+                hull (_type_): _description_
+                latitude (_type_): _description_
+                longitude (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             points = np.vstack((longitude, latitude)).T
     
             return np.all(hull.equations[:,:-1] @ points.T + np.repeat(hull.equations[:,-1][None,:], len(points), axis=0).T <= 0, 0)
 
 
         def jumps_func(arr):
+            """_summary_
+
+            Args:
+                arr (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             diff_arr = np.diff(arr)
             jumps_arr = np.where(np.abs(diff_arr) > 10)
             jumps_arr = np.insert(jumps_arr, 0, -1)
@@ -102,6 +169,15 @@ class GPSPropogation:
 
 
         def plot(data, longitude, latitude, hull, ax):
+            """_summary_
+
+            Args:
+                data (_type_): _description_
+                longitude (_type_): _description_
+                latitude (_type_): _description_
+                hull (_type_): _description_
+                ax (_type_): _description_
+            """
             diff_arr = np.diff(longitude)
             jumps = np.where(np.abs(diff_arr) > 50)
             jumps = np.insert(jumps, 0, -1)
@@ -158,6 +234,16 @@ class GPSPropogation:
 
 
         def get_line_points(index, longitude, latitude):
+            """_summary_
+
+            Args:
+                index (_type_): _description_
+                longitude (_type_): _description_
+                latitude (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             x = []
             y = []
             for i in range(index-5, index+6):
@@ -169,6 +255,19 @@ class GPSPropogation:
 
 
         def plot_line(hull, index, longitude, latitude, ax, acceptable_err):
+            """_summary_
+
+            Args:
+                hull (_type_): _description_
+                index (_type_): _description_
+                longitude (_type_): _description_
+                latitude (_type_): _description_
+                ax (_type_): _description_
+                acceptable_err (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             x, y = get_line_points(index, longitude, latitude)
             model = LinearRegression().fit(x, y)
             m = model.coef_
@@ -207,6 +306,17 @@ class GPSPropogation:
 
 
         def ellipse_line_intersect(hull, x_arr, y_arr, ax):
+            """_summary_
+
+            Args:
+                hull (_type_): _description_
+                x_arr (_type_): _description_
+                y_arr (_type_): _description_
+                ax (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             inside = inside_hull_func(hull, y_arr, x_arr)
             plot_x = x_arr[inside]
             plot_y = y_arr[inside]
@@ -217,6 +327,18 @@ class GPSPropogation:
 
 
         def linear_pred_error(index, longitude, latitude, m, b):
+            """_summary_
+
+            Args:
+                index (_type_): _description_
+                longitude (_type_): _description_
+                latitude (_type_): _description_
+                m (_type_): _description_
+                b (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             range = 25 # arbitrarily chosen
             ind = np.linspace(index-range, index+range, range*2+1)
             long = longitude[index-range:index+range+1]
@@ -235,15 +357,22 @@ class GPSPropogation:
             return abs_err, ind
 
         sns.set_theme()
-
+        
         data, latitude, longitude = load_data_celest(eci_positions)
         # latitude, longitude = set_parameters(0, 500, data) # only get first few points
+
+        self.data = data
+        self.latitude = latitude 
+        self.longitude = longitude
 
         target_lat = [target_coordinates[0]] # Degrees north
         target_long = [target_coordinates[1]] # Degrees east
 
         fig, ax = plt.subplots()
-        hull = get_convex_hull(ax)
+        hull = get_convex_hull(ax, target_coordinates)
+        self.hull = hull
+
+        self.ax = ax
 
         # Plot the ground track
         plot(data, longitude, latitude, hull, ax)
@@ -262,13 +391,16 @@ class GPSPropogation:
         ax.plot(longitude[index], latitude[index], marker='o', color='tab:red')
         m, b = plot_line(hull, index, longitude, latitude, ax, acceptable_err)
 
+        self.index = index
+        self.acceptable_err = acceptable_err
+
+        self.m = m
+        self.b = b
+
         plt.show()
 
         load_data = load_data_celest(eci_positions)
         self.load_data = load_data
-
-        convex_hull = get_convex_hull(ax, target_lat, target_long)
-        self.convex_hull = convex_hull
 
         plot_ground_track = plot(data, longitude, latitude, hull, ax)
         self.plot_ground_track = plot_ground_track
@@ -281,25 +413,46 @@ class GPSPropogation:
 
     # what the user will see
 
-    def get_convex_hull():
-        fig, ax = plt.subplots()
-        target_lat = self.target_coordinates[0]
-        target_long = self.target_coordinates[1]
-        return self.convex_hull
+    def get_convex_hull(self):
+        return self.hull
 
-    def plot_ground_track():
-        file = self.eci_positions
-        data, latitude, longitude = self.load_data
-        hull = self.convex_hull
-        return self.plot_ground_track
+    def plot_ground_track(self):
+        data, latitude, longitude = self.data, self.latitude, self.longitude
+        hull = self.hull
 
-    def plot_fit_errors():
-        data, latitude, longitude = self.load_data
-        return self.plot_fit_errors
+        ax = self.ax
 
-    def plot_linear_approximation():
-        data, latitude, longitude = self.load_data
-        return self.plot_linear_approximation
+        self.plot(data, longitude, latitude, hull, ax)
+
+    def plot_fit_errors(self):
+        data, latitude, longitude = self.data, self.latitude, self.longitude
+        m = self.m 
+        b = self.b 
+        index = self.index 
+
+        self.linear_pred_error(index, longitude, latitude, m, b)
+
+    def plot_linear_approximation(self):
+        data, latitude, longitude = self.data, self.latitude, self.longitude
+        hull = self.hull
+
+        ax = self.ax
+        index = self.index 
+        acceptable_err = self.acceptable_err
+        
+        self.plot_line(hull, index, longitude, latitude, ax, acceptable_err)
+
+    def hi(self):
+        index = self.index
+        print("index:", index)
+        print('hello')
     
-if __name__ == "__main__":
-    print("hello")
+if __name__ == "__main__":    
+    eci_positions = 'supernova_data.csv'
+    target_coordinates = (45.4215, -75.6972)
+    linear_fit = (100, 2)
+    
+    gps = GPSPropogation(None, eci_positions, target_coordinates, linear_fit)
+
+    gps.hi()
+    
