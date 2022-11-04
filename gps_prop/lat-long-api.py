@@ -10,23 +10,39 @@ from celest.encounter import GroundPosition
 class GPSPropogation:
 
     def __init__(self, time: np.ndarray, eci_positions: np.ndarray, target_coordinates: tuple, linear_fit: tuple):
+        """
+        Parameters
+        ----------
+            eci_positions: np.ndarray
+                orbit data
+            target_coordinates: tuple 
+                latitude and langitude coordinates of target location
+            linear_fit: tuple
+                index of orbit data and maximum error for linear approximation of ground track
+        """
 
         self.time = time
         self.eci_positions = eci_positions
         self.target_coordinates = target_coordinates
         self.linear_fit = linear_fit
 
-    def load_data_celest(self, eci_positions):
+    def load_data_celest(self, eci_positions: np.ndarray) -> "tuple(np.ndarray, np.ndarray, np.ndarray)":
         """Returns an array of the orbit data [latitude, longitude, altitude], 
         an array of the latitude data, and an array of the longitude data
 
-        Args:
-            eci_positions (np.ndarray): *.csv file of the orbit data
+        Parameters
+        ----------
+            eci_positions: np.ndarray
+                orbit data
 
-        Returns:
-            data (np.ndarray): orbit data [latitude, longitude, altitude]
-            latitude (np.ndarray): latitude data
-            longitude (np.ndarray): longitude data
+        Returns
+        -------
+            data: np.ndarray
+                orbit data [latitude, longitude, altitude]
+            latitude: np.ndarray
+                latitude data
+            longitude: np.ndarray
+                longitude data
         """
 
         orbit_data = np.loadtxt(eci_positions, delimiter=',')
@@ -45,49 +61,66 @@ class GPSPropogation:
 
         return data, latitude, longitude
 
-    def set_parameters(self, start, end, data):
+    def set_parameters(self, start: int, end: int, data: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
         """Returns truncated latitude and longitude arrays from index = start to index = end
 
-        Args:
-            start (int): start index
-            end (int): end index
-            data (np.ndarray): orbit data [latitude, longitude, altitude]
+        Parameters
+        ----------
+            start: int
+                start index
+            end: int 
+                end index
+            data: np.ndarray 
+                orbit data [latitude, longitude, altitude]
 
-        Returns:
-            latitude (np.ndarray): latitude data
-            longitude (np.ndarray): longitude data
+        Returns
+        -------
+            latitude: np.ndarray
+                latitude data
+            longitude: np.ndarray
+                longitude data
         """
 
         latitude = data[start:end, 0]  # Degrees north of equator
         longitude = data[start:end, 1]  # Degrees east of prime meridian
         return latitude, longitude
 
-    def set_parameters2(self, start, end, data):
+    def set_parameters2(self, start: int, end: int, data: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
         """Returns truncated latitude and longitude arrays from index = start to index = end
 
-        Args:
-            start (int): start index
-            end (int): end index
-            data (np.ndarray): orbit data [latitude, longitude, altitude]
+        Parameters
+        ----------
+            start: int
+                start index
+            end: int
+                end index
+            data: np.ndarray
+                orbit data [latitude, longitude, altitude]
 
-        Returns:
-            latitude (np.ndarray): latitude data
-            longitude (np.ndarray): longitude data
+        Returns
+        -------
+            latitude: np.ndarray
+                latitude data
+            longitude: np.ndarray
+                longitude data
         """
 
         latitude = data[0, start:end]  # Degrees north of equator
         longitude = data[1, start:end]  # Degrees east of prime meridian
         return latitude, longitude
 
-    def get_convex_hull(self, ax, traget_coordinates):
+    def get_convex_hull(self, ax, traget_coordinates: "tuple(float, float)"): 
         """Returns convex hull around target coordinates
 
-        Args:
-            ax: _description_
-            traget_coordinates (tuple): target latitude and longitude coordinates
+        Parameters
+        ---------- 
+            traget_coordinate: tuple
+                target latitude and longitude coordinates
 
-        Returns:
-            hull: convex hull
+        Returns
+        -------
+            hull
+                convex hull
         """
 
         target = GroundPosition(
@@ -135,24 +168,30 @@ class GPSPropogation:
 
         return hull
 
-    def inside_hull_func(self, hull, latitude, longitude):
+    def inside_hull_func(self, hull, latitude: np.ndarray, longitude: np.ndarray) -> np.ndarray:
         """Returns an array of latitude and longitude points from 
         the orbit data that lies inside the convex hull
 
-        Args:
-            hull (_type_): _description_
-            latitude (_type_): _description_
-            longitude (_type_): _description_
+        Parameters
+        ----------
+            hull: 
+                convex hull
+            latitude: np.ndarray
+                latitude data
+            longitude: np.ndarray
+                longitude data
 
-        Returns:
-            _type_: _description_
+        Returns
+        -------
+            np.ndarray
+                array of latitude and longitude points that lie inside the convex hull
         """
         points = np.vstack((longitude, latitude)).T
 
         return np.all(hull.equations[:, :-1] @ points.T + np.repeat(hull.equations[:, -1][None, :], len(points), axis=0).T <= 0, 0)
 
     def jumps_func(self, arr: np.ndarray, threshold: int = 10) -> np.ndarray:
-        """Returns an array of the indices of the jumps in an arbitrary array
+        """Returns an array of the indices of the jumps
 
         Parameters
         ----------
@@ -160,7 +199,7 @@ class GPSPropogation:
             latitude or longitude data
         Returns
         -------
-        np.ndarray
+        jumps_arr: np.ndarray
             array of the indices of the jumps
         """
         diff_arr = np.diff(arr)
@@ -170,15 +209,19 @@ class GPSPropogation:
 
         return jumps_arr
 
-    def plot(self, data, longitude, latitude, hull, ax):
-        """_summary_
+    def plot(self, data: np.ndarray, longitude: np.ndarray, latitude: np.ndarray, hull, ax):
+        """Plots the ground track, linear approximation of the ground track at a point, and the error of the linear fit
 
-        Args:
-            data (_type_): _description_
-            longitude (_type_): _description_
-            latitude (_type_): _description_
-            hull (_type_): _description_
-            ax (_type_): _description_
+        Parameters
+        ----------
+            data: np.ndarray
+                orbit data
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
+            hull
+                convex hull
         """
         jumps = self.jumps_func(longitude, threshold=50)
 
@@ -234,16 +277,22 @@ class GPSPropogation:
                     jumps_arr[i]+1, jumps_arr[i+1], data_new)
                 ax.plot(long_blue, lat_blue, color='tab:blue')
 
-    def get_line_points(self, index, longitude, latitude):
-        """_summary_
+    def get_line_points(self, index: int, longitude: np.ndarray, latitude: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
+        """Returns arrays of x and y orbit data points for a linear fit
 
-        Args:
-            index (_type_): _description_
-            longitude (_type_): _description_
-            latitude (_type_): _description_
+        Parameters
+        ----------
+            index: int
+                index of the point where a linear fit should be completed
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
 
-        Returns:
-            _type_: _description_
+        Returns
+        -------
+            x, y: np.ndarray
+                array of x and y orbit data points for a linear fit
         """
         x = []
         y = []
@@ -254,20 +303,29 @@ class GPSPropogation:
         y = np.array(y)
         return x, y
 
-    def plot_line(self, hull, index, longitude,
-                  latitude, ax, acceptable_err) -> "tuple(float, float)":
-        """_summary_
+    def plot_line(self, hull, index: int, longitude: np.ndarray,
+                  latitude: np.ndarray, ax, acceptable_err: int) -> "tuple(float, float)":
+        """Plots the linear approximation of the ground track at a point
 
-        Args:
-            hull (_type_): _description_
-            index (_type_): _description_
-            longitude (_type_): _description_
-            latitude (_type_): _description_
-            ax (_type_): _description_
-            acceptable_err (_type_): _description_
+        Parameters
+        ----------
+            hull
+                convex hull
+            index: int
+                index of the point where a linear fit should be completed
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
+            acceptable_err: int
+                maximum allowable absolute error of the linear fit
 
-        Returns:
-            _type_: _description_
+        Returns
+        -------
+            m: int
+                slope of linear fit
+            b: int
+                y-intercept of linear fit
         """
         x, y = self.get_line_points(index, longitude, latitude)
         model = LinearRegression().fit(x, y)
@@ -307,17 +365,22 @@ class GPSPropogation:
 
         return m, b
 
-    def ellipse_line_intersect(self, hull, x_arr, y_arr, ax):
-        """_summary_
+    def ellipse_line_intersect(self, hull, x_arr: np.ndarray, y_arr: np.ndarray, ax) -> "tuple(np.ndarray, np.ndarray)":
+        """Returns arrays of x and y points from the linear fit that are inside the convex hull and plots it on the ground track plot in a different colour
 
-        Args:
-            hull (_type_): _description_
-            x_arr (_type_): _description_
-            y_arr (_type_): _description_
-            ax (_type_): _description_
+        Parameters
+        ----------
+            hull
+                convex hull
+            x_arr: np.nadarray
+                array of x points of the linear fit
+            y_arr: np.nadarray
+                array of y points of the linear fit
 
-        Returns:
-            _type_: _description_
+        Returns
+        -------
+            plot_x, plot_y: np.ndarray
+                arrays of x and y points from the linear fit that are inside the convex hull
         """
         inside = self.inside_hull_func(hull, y_arr, x_arr)
         plot_x = x_arr[inside]
@@ -327,18 +390,27 @@ class GPSPropogation:
 
         return plot_x, plot_y
 
-    def linear_pred_error(self, index, longitude, latitude, m, b):
-        """_summary_
+    def linear_pred_error(self, index: int, longitude: np.ndarray, latitude: np.ndarray, m: float, b: float) -> "tuple(np.ndarray, np.ndarray)":
+        """Returns arrays of the absolute error of the linear fit and the indices of the orbit data where the error was calculated
+            Plots the error of the linear fit
 
-        Args:
-            index (_type_): _description_
-            longitude (_type_): _description_
-            latitude (_type_): _description_
-            m (_type_): _description_
-            b (_type_): _description_
+        Parameters
+        ----------
+            index: int
+                index of the point where a linear fit should be completed
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
+            m: int
+                slope of linear fit
+            b: int
+                y-intercept of linear fit
 
-        Returns:
-            _type_: _description_
+        Returns
+        -------
+            abs_err, ind: np.ndarray
+                arrays of the absolute error of the linear fit and the indices of the orbit data where the error was calculated
         """
         range = 25  # arbitrarily chosen
         ind = np.linspace(index-range, index+range, range*2+1)
@@ -398,8 +470,6 @@ class GPSPropogation:
         plt.show()
 
     def hi(self):
-        index = self.index
-        print("index:", index)
         print('hello')
 
 
