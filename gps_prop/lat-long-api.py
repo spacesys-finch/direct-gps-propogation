@@ -9,6 +9,7 @@ from celest.encounter import GroundPosition
 
 class GPSPropogation:
 
+
     def __init__(self, time: np.ndarray, eci_positions: np.ndarray,
                  target_coordinates: tuple, linear_fit: tuple):
         """
@@ -33,6 +34,7 @@ class GPSPropogation:
         self.latitude = None
         self.longitude = None
         self.hull = None
+
 
     def load_data_celest(self, eci_positions: np.ndarray) \
             -> "tuple(np.ndarray, np.ndarray, np.ndarray)":
@@ -70,6 +72,7 @@ class GPSPropogation:
 
         return data, latitude, longitude
 
+
     def set_parameters(self, start: int, end: int, data: np.ndarray) \
             -> "tuple(np.ndarray, np.ndarray)":
         """Returns truncated latitude and longitude arrays from index = start to index = end
@@ -94,6 +97,7 @@ class GPSPropogation:
         latitude = data[start:end, 0]  # Degrees north of equator
         longitude = data[start:end, 1]  # Degrees east of prime meridian
         return latitude, longitude
+
 
     def get_convex_hull(self, target_coordinates: "tuple(float, float)") -> ConvexHull:
         """Returns convex hull around target coordinates
@@ -143,6 +147,7 @@ class GPSPropogation:
 
         return ConvexHull(points)
 
+
     def plot_convex_hull_onto_axes(self, hull: ConvexHull, ax: plt.axes):
         # Plot the convex hull
         points = hull.points
@@ -155,7 +160,8 @@ class GPSPropogation:
         ax.plot(points[hull.vertices[0], 0],
                 points[hull.vertices[0], 1], 'r--')
 
-    def inside_hull_func(self, hull: ConvexHull, latitude: np.ndarray, longitude: np.ndarray) -> np.ndarray:
+
+    def inside_hull(self, hull: ConvexHull, latitude: np.ndarray, longitude: np.ndarray) -> np.ndarray:
         """Returns an array of latitude and longitude points from 
         the orbit data that lies inside the convex hull
 
@@ -184,7 +190,8 @@ class GPSPropogation:
 
         return hull.find_simplex(points) >= 0
 
-    def jumps_func(self, arr: np.ndarray, threshold: int = 10) -> np.ndarray:
+
+    def get_jumps(self, arr: np.ndarray, threshold: int = 10) -> np.ndarray:
         """Returns an array of the indices of the jumps
 
         Parameters
@@ -203,6 +210,7 @@ class GPSPropogation:
 
         return jumps_arr
 
+
     def plot_ground_track(self, data: np.ndarray, longitude: np.ndarray, latitude: np.ndarray, hull: ConvexHull, ax: plt.axes) -> None:
         """Plots the ground track, linear approximation of the ground track at a point, and the error of the linear fit
 
@@ -219,11 +227,11 @@ class GPSPropogation:
             ax: plt.axes    
                 axes object
         """
-        jumps = self.jumps_func(longitude, threshold=50)
+        jumps = self.get_jumps(longitude, threshold=50)
 
         for i in range(len(jumps)-1):
             lat, long = self.set_parameters(jumps[i]+1, jumps[i+1], data)
-            inside_ellipse = self.inside_hull_func(hull, lat, long)
+            inside_ellipse = self.inside_hull(hull, lat, long)
 
             # plot green
             new_inside_ellipse = np.copy(inside_ellipse)
@@ -241,7 +249,7 @@ class GPSPropogation:
             lat_inside = lat[new_inside_ellipse]
             long_inside = long[new_inside_ellipse]
             data_new = np.array([np.array(lat_inside), np.array(long_inside)])
-            jumps_arr = self.jumps_func(lat_inside)
+            jumps_arr = self.get_jumps(lat_inside)
 
             for i in range(len(jumps_arr)-1):
                 lat_green, long_green = self.set_parameters(
@@ -266,14 +274,15 @@ class GPSPropogation:
             long_outside = long[new_outside_ellipse]
             data_new = np.array(
                 [np.array(lat_outside), np.array(long_outside)])
-            jumps_arr = self.jumps_func(lat_outside)
+            jumps_arr = self.get_jumps(lat_outside)
 
             for i in range(len(jumps_arr)-1):
                 lat_blue, long_blue = self.set_parameters(
                     jumps_arr[i]+1, jumps_arr[i+1], data_new.T)
                 ax.plot(long_blue, lat_blue, color='tab:blue')
 
-    def get_line_points(self, index: int, longitude: np.ndarray,
+
+    def get_points_for_linear_fit(self, index: int, longitude: np.ndarray,
                         latitude: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
         """Returns arrays of x and y orbit data points for a linear fit
 
@@ -298,11 +307,13 @@ class GPSPropogation:
             y.append(latitude[i])
         x = np.array(x).reshape((-1, 1))
         y = np.array(y)
+        
         return x, y
 
-    def plot_line(self, hull, index: int, longitude: np.ndarray,
-                  latitude: np.ndarray, ax, acceptable_err: int) -> "tuple(float, float)":
-        """Plots the linear approximation of the ground track at a point
+
+    def get_linear_fit(self, index: int, longitude: np.ndarray,
+                  latitude: np.ndarray, acceptable_err: int) -> "tuple(float, float)":
+        """Calculates the linear approximation of the ground track at a point
 
         Parameters
         ----------
@@ -323,14 +334,20 @@ class GPSPropogation:
                 slope of linear fit
             b: int
                 y-intercept of linear fit
+            acceptable_x_arr: np.ndarray
+                array of x values of the linear approximation that are within the error
+            acceptable_y_arr: np.ndarray
+                array of y values of the linear approximation that are within the error
         """
-        x, y = self.get_line_points(index, longitude, latitude)
+        x, y = self.get_points_for_linear_fit(index, longitude, latitude)
         model = LinearRegression().fit(x, y)
         m = model.coef_
         b = model.intercept_
 
-        abs_err, ind_array = self.linear_pred_error(
-            index, longitude, latitude, m, b)  # also plots the error graphs
+        _, abs_err, ind_array = self.get_linear_fit_error(
+            index, longitude, latitude, m, b)
+        
+        self.plot_linear_fit_error(index, longitude, latitude, m, b)
 
         # figure out indices to plot
         acceptable_range = abs_err <= acceptable_err
@@ -351,19 +368,41 @@ class GPSPropogation:
         acceptable_x_arr = x_arr[acceptable_x]
         acceptable_y_arr = m * acceptable_x_arr + b
 
+        return m, b, acceptable_x_arr, acceptable_y_arr
+    
+
+    def plot_linear_fit_onto_axes(self, hull, index: int, longitude: np.ndarray,
+                  latitude: np.ndarray, ax: plt.axes, acceptable_err: int) -> "tuple(float, float)":
+        """Plots the linear approximation of the ground track at a point
+
+        Parameters
+        ----------
+            hull
+                convex hull
+            index: int
+                index of the point where a linear fit should be completed
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
+            acceptable_err: int
+                maximum allowable absolute error of the linear fit
+        """
+        _, _, acceptable_x_arr, acceptable_y_arr = self.get_linear_fit(
+            index, longitude, latitude, acceptable_err)
+
         ax.plot(acceptable_x_arr, acceptable_y_arr, color='tab:orange')
 
         # ax.axline((0, b), slope = m, color='tab:orange')
         ax.set_ylim(-120, 120)
 
         # plot the inside ellipse region a different colour
-        inside_x, inside_y = self.ellipse_line_intersect(
+        self.plot_line_inside_hull_on_axes(
             hull, acceptable_x_arr, acceptable_y_arr, ax)
 
-        return m, b
 
-    def ellipse_line_intersect(self, hull, x_arr: np.ndarray, y_arr: np.ndarray, ax) -> "tuple(np.ndarray, np.ndarray)":
-        """Returns arrays of x and y points from the linear fit that are inside the convex hull and plots it on the ground track plot in a different colour
+    def get_line_points_inside_hull(self, hull, x_arr: np.ndarray, y_arr: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
+        """Returns arrays of x and y points from the linear fit that are inside the convex hull
 
         Parameters
         ----------
@@ -379,15 +418,31 @@ class GPSPropogation:
             plot_x, plot_y: np.ndarray
                 arrays of x and y points from the linear fit that are inside the convex hull
         """
-        inside = self.inside_hull_func(hull, y_arr, x_arr)
+        inside = self.inside_hull(hull, y_arr, x_arr)
         plot_x = x_arr[inside]
         plot_y = y_arr[inside]
 
-        ax.plot(plot_x, plot_y)
-
         return plot_x, plot_y
 
-    def linear_pred_error(self, index: int, longitude: np.ndarray,
+
+    def plot_line_inside_hull_on_axes(self, hull, x_arr: np.ndarray, y_arr: np.ndarray, ax: plt.axes) -> "tuple(np.ndarray, np.ndarray)":
+        """Plots arrays of x and y points from the linear fit that are inside the convex hull onto the ground track plot in a different colour
+
+        Parameters
+        ----------
+            hull
+                convex hull
+            x_arr: np.nadarray
+                array of x points of the linear fit
+            y_arr: np.nadarray
+                array of y points of the linear fit
+        """
+        plot_x, plot_y = self.get_line_points_inside_hull(hull, x_arr, y_arr)
+
+        ax.plot(plot_x, plot_y)
+
+
+    def get_linear_fit_error(self, index: int, longitude: np.ndarray,
                           latitude: np.ndarray, m: float, b: float) \
             -> "tuple(np.ndarray, np.ndarray)":
         """Returns arrays of the absolute error of the linear fit and the indices of the orbit data where the error was calculated
@@ -408,8 +463,8 @@ class GPSPropogation:
 
         Returns
         -------
-            abs_err, ind: np.ndarray
-                arrays of the absolute error of the linear fit and the indices of the orbit data where the error was calculated
+            long, abs_err, ind: np.ndarray
+                arrays of the longitude points, absolute error of the linear fit, and the indices of the orbit data where the error was calculated
         """
         range = 25  # arbitrarily chosen
         ind = np.linspace(index-range, index+range, range*2+1)
@@ -417,6 +472,29 @@ class GPSPropogation:
         actual = latitude[index-range:index+range+1]
         pred = long * m + b
         abs_err = abs(actual-pred)
+
+        return long, abs_err, ind
+    
+
+    def plot_linear_fit_error(self, index: int, longitude: np.ndarray,
+                          latitude: np.ndarray, m: float, b: float) \
+            -> "tuple(np.ndarray, np.ndarray)":
+        """Plots the error of the linear fit
+
+        Parameters
+        ----------
+            index: int
+                index of the point where a linear fit should be completed
+            longitude: np.ndarray
+                longitude data
+            latitude: np.ndarray
+                latitude data
+            m: int
+                slope of linear fit
+            b: int
+                y-intercept of linear fit
+        """
+        long, abs_err, _ = self.get_linear_fit_error(index, longitude, latitude, m, b)
 
         title = 'Linear Prediction Absolute Error at Index = {}, Point ({}, {})'.format(
             index, round(longitude[index], 2), round(latitude[index], 2))
@@ -427,7 +505,17 @@ class GPSPropogation:
         ax_long.set_xlabel("Longitude ($^\circ$)")
         ax_long.set_ylabel("Absolute Error ($^\circ$ Latitude)")
 
-        return abs_err, ind
+
+    def compute(self):
+        data, latitude, longitude = self.load_data_celest(eci_positions)
+        # latitude, longitude = set_parameters(0, 500, data) # only get first few points
+
+        hull = self.get_convex_hull(self.target_coordinates)
+        self.hull = hull
+        self.data = data
+        self.latitude = latitude
+        self.longitude = longitude
+
 
     def plot(self):
         '''
@@ -461,25 +549,15 @@ class GPSPropogation:
         acceptable_err = linear_fit[1]
         ax.plot(self.longitude[index], self.latitude[index],
                 marker='o', color='tab:red')
-        m, b = self.plot_line(self.hull, index, self.longitude,
-                              self.latitude, ax, acceptable_err)
+        self.plot_linear_fit_onto_axes(
+            self.hull, index, self.longitude, self.latitude, ax, acceptable_err)
 
         plt.show()
-
-    def compute(self):
-        data, latitude, longitude = self.load_data_celest(eci_positions)
-        # latitude, longitude = set_parameters(0, 500, data) # only get first few points
-
-        hull = self.get_convex_hull(self.target_coordinates)
-        self.hull = hull
-        self.data = data
-        self.latitude = latitude
-        self.longitude = longitude
 
 
 if __name__ == "__main__":
     eci_positions = 'supernova_data.csv'
-    target_coordinates = (45.4215, -75.6972)
+    target_coordinates = (45.4215, -75.6972) # Toronto
     linear_fit = (100, 2)
 
     gps = GPSPropogation(None, eci_positions, target_coordinates, linear_fit)
