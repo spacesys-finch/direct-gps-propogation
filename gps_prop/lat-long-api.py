@@ -211,7 +211,8 @@ class GPSPropogation:
         return jumps_arr
 
 
-    def plot_ground_track(self, data: np.ndarray, longitude: np.ndarray, latitude: np.ndarray, hull: ConvexHull, ax: plt.axes) -> None:
+    def plot_ground_track(self, data: np.ndarray, longitude: np.ndarray, 
+                          latitude: np.ndarray, hull: ConvexHull, ax: plt.axes) -> None:
         """Plots the ground track, linear approximation of the ground track at a point, and the error of the linear fit
 
         Parameters
@@ -311,8 +312,8 @@ class GPSPropogation:
         return x, y
 
 
-    def get_linear_fit(self, index: int, longitude: np.ndarray,
-                  latitude: np.ndarray, acceptable_err: int) -> "tuple(float, float)":
+    def get_linear_fit(self, index: int, longitude: np.ndarray, latitude: np.ndarray, 
+                        acceptable_err: int) -> "tuple(float, float, np.ndarray, np.ndarray)":
         """Calculates the linear approximation of the ground track at a point
 
         Parameters
@@ -372,7 +373,7 @@ class GPSPropogation:
     
 
     def plot_linear_fit_onto_axes(self, hull, index: int, longitude: np.ndarray,
-                  latitude: np.ndarray, ax: plt.axes, acceptable_err: int) -> "tuple(float, float)":
+                  latitude: np.ndarray, ax: plt.axes, acceptable_err: int) -> None:
         """Plots the linear approximation of the ground track at a point
 
         Parameters
@@ -401,7 +402,8 @@ class GPSPropogation:
             hull, acceptable_x_arr, acceptable_y_arr, ax)
 
 
-    def get_line_points_inside_hull(self, hull, x_arr: np.ndarray, y_arr: np.ndarray) -> "tuple(np.ndarray, np.ndarray)":
+    def get_line_points_inside_hull(self, hull, x_arr: np.ndarray, y_arr: np.ndarray) \
+                                    -> "tuple(np.ndarray, np.ndarray)":
         """Returns arrays of x and y points from the linear fit that are inside the convex hull
 
         Parameters
@@ -415,8 +417,10 @@ class GPSPropogation:
 
         Returns
         -------
-            plot_x, plot_y: np.ndarray
-                arrays of x and y points from the linear fit that are inside the convex hull
+            plot_x: np.ndarray
+                array of x points from the linear fit that are inside the convex hull
+            plot_y: np.ndarray
+                array of y points from the linear fit that are inside the convex hull
         """
         inside = self.inside_hull(hull, y_arr, x_arr)
         plot_x = x_arr[inside]
@@ -425,8 +429,10 @@ class GPSPropogation:
         return plot_x, plot_y
 
 
-    def plot_line_inside_hull_on_axes(self, hull, x_arr: np.ndarray, y_arr: np.ndarray, ax: plt.axes) -> "tuple(np.ndarray, np.ndarray)":
-        """Plots arrays of x and y points from the linear fit that are inside the convex hull onto the ground track plot in a different colour
+    def plot_line_inside_hull_on_axes(self, hull, x_arr: np.ndarray, y_arr: np.ndarray, 
+                                        ax: plt.axes) -> None:
+        """Plots arrays of x and y points from the linear fit that are inside the convex hull 
+        onto the ground track plot in a different colour
 
         Parameters
         ----------
@@ -444,9 +450,9 @@ class GPSPropogation:
 
     def get_linear_fit_error(self, index: int, longitude: np.ndarray,
                           latitude: np.ndarray, m: float, b: float) \
-            -> "tuple(np.ndarray, np.ndarray)":
-        """Returns arrays of the absolute error of the linear fit and the indices of the orbit data where the error was calculated
-            Plots the error of the linear fit
+                          -> "tuple(np.ndarray, np.ndarray, np.ndarray)":
+        """Returns arrays of the absolute error of the linear fit and the 
+        indices of the orbit data where the error was calculated
 
         Parameters
         ----------
@@ -463,8 +469,12 @@ class GPSPropogation:
 
         Returns
         -------
-            long, abs_err, ind: np.ndarray
-                arrays of the longitude points, absolute error of the linear fit, and the indices of the orbit data where the error was calculated
+            long: np.ndarray
+                array of longitude points of the orbit data where the error was calculated
+            abs_err: np.ndarray
+                array of the absolute error of the linear fit of the orbit data where the error was calculated
+            ind: np.ndarray
+                array of the indices of the orbit data where the error was calculated
         """
         range = 25  # arbitrarily chosen
         ind = np.linspace(index-range, index+range, range*2+1)
@@ -477,8 +487,7 @@ class GPSPropogation:
     
 
     def plot_linear_fit_error(self, index: int, longitude: np.ndarray,
-                          latitude: np.ndarray, m: float, b: float) \
-            -> "tuple(np.ndarray, np.ndarray)":
+                          latitude: np.ndarray, m: float, b: float) -> None:
         """Plots the error of the linear fit
 
         Parameters
@@ -507,6 +516,10 @@ class GPSPropogation:
 
 
     def compute(self):
+        """
+        Computes data for gps propagation plots.
+        """
+
         data, latitude, longitude = self.load_data_celest(eci_positions)
         # latitude, longitude = set_parameters(0, 500, data) # only get first few points
 
@@ -518,9 +531,10 @@ class GPSPropogation:
 
 
     def plot(self):
-        '''
+        """
         Generates plots based on precomputed data.
-        '''
+        """
+
         # ensure data has been precomputed
         if self.data is None:
             raise Exception("Data has not been precomputed.")
